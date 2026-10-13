@@ -111,7 +111,8 @@ let
       "Enable"="N"
     '').outPath}"
 
-    ${lib.getExe winetricks} renderer=vulkan
+    # Vulkan renderer setup currently fails with WoW64 Wine because
+    # winetricks invokes C:\windows\syswow64\regedit.exe.
 
     install -D -t "$WINEPREFIX/drive_c/windows/system32/WinMetadata/" ${inputs.windows-rs}/crates/libs/bindgen/default/Windows.winmd
 
