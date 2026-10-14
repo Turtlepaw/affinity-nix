@@ -127,40 +127,43 @@ let
         ];
       }
       ''
-        set -x -e
+                set -x -e
 
-        mkdir -p $out
-        cp -a ${layer_1}/. $out
-        chmod -R +w $out
-        export WINEPREFIX="$out"
+                mkdir -p $out
+                cp -a ${layer_1}/. $out
+                chmod -R +w $out
+                export WINEPREFIX="$out"
 
-        mkdir -p /tmp/cache
-        export XDG_CACHE_HOME="/tmp/cache"
+                mkdir -p /tmp/cache
+                export XDG_CACHE_HOME="/tmp/cache"
 
-        ${lib.getExe wine} winecfg -v win7
-        export WINEDEBUG=+loaddll,+module
-        xvfb-run -a ${lib.getExe wine} "${dependencies}/MicrosoftEdgeWebView2RuntimeInstallerX64.exe" /silent /install
-        ${lib.getExe wine} winecfg -v win11
+                ${lib.getExe wine} winecfg -v win7
+                export WINEDEBUG=+loaddll,+module
+                ${lib.getExe wine} winecfg -v win10
+        xvfb-run -a ${lib.getExe wine} \
+          "${dependencies}/MicrosoftEdgeWebView2RuntimeInstallerX64.exe" \
+          /silent /install
+                ${lib.getExe wine} winecfg -v win11
 
-        ${lib.getExe wine} regedit /S "${(writeText "webview2-regedit-changes.reg" ''
-          Windows Registry Editor Version 5.00
+                ${lib.getExe wine} regedit /S "${(writeText "webview2-regedit-changes.reg" ''
+                  Windows Registry Editor Version 5.00
 
-          [HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\edgeupdate]
-          "Start"=dword:00000004
+                  [HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\edgeupdate]
+                  "Start"=dword:00000004
 
-          [HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\edgeupdatem]
-          "Start"=dword:00000004
+                  [HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\edgeupdatem]
+                  "Start"=dword:00000004
 
-          [HKEY_CURRENT_USER\Software\Wine\AppDefaults]
+                  [HKEY_CURRENT_USER\Software\Wine\AppDefaults]
 
-          [HKEY_CURRENT_USER\Software\Wine\AppDefaults\msedgewebview2.exe]
-          "Version"="win7"
-        '').outPath}"
+                  [HKEY_CURRENT_USER\Software\Wine\AppDefaults\msedgewebview2.exe]
+                  "Version"="win7"
+                '').outPath}"
 
-        # The Edge Update service gets to start before we can deactivate it, so it must be stopped manually
-        ${lib.getExe wine} taskkill /f /im MicrosoftEdgeUpdate.exe
+                # The Edge Update service gets to start before we can deactivate it, so it must be stopped manually
+                ${lib.getExe wine} taskkill /f /im MicrosoftEdgeUpdate.exe
 
-        ${lib.getExe wineserver} -w
+                ${lib.getExe wineserver} -w
       '';
 in
 runCommand "affinity-prefix-layer-3-winetricks"
