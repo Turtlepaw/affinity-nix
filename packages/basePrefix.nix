@@ -138,7 +138,8 @@ let
         export XDG_CACHE_HOME="/tmp/cache"
 
         ${lib.getExe wine} winecfg -v win7
-        xvfb-run ${lib.getExe wine} "${dependencies}/MicrosoftEdgeWebView2RuntimeInstallerX64.exe" /silent /install
+        export WINEDEBUG=+loaddll,+module
+        xvfb-run -a ${lib.getExe wine} "${dependencies}/MicrosoftEdgeWebView2RuntimeInstallerX64.exe" /silent /install
         ${lib.getExe wine} winecfg -v win11
 
         ${lib.getExe wine} regedit /S "${(writeText "webview2-regedit-changes.reg" ''
