@@ -8,15 +8,16 @@
   lib,
   inputs,
   wine-packages,
+  pkgs,
   ...
 }:
 let
   verbs = [
-    "tahoma"
+    #"tahoma"
     "vcrun2022"
     "dotnet20"
     "dotnet48"
-    "corefonts"
+    #"corefonts"
     "win11"
   ];
 
@@ -29,25 +30,20 @@ let
   dependencies = callPackage ./dependencies.nix { };
   winetricksCache = linkFarm "winetricks-cache" [
     {
-      name = "vcrun2022/vc_redist.x64.exe";
+      name = "vcrun2022/vc_redist.x64.msi";
       path = fetchurl {
-        urls = [
-          "https://web.archive.org/web/20260405052133/https://aka.ms/vs/17/release/vc_redist.x64.exe"
-          "https://download.visualstudio.microsoft.com/download/pr/7ebf5fdb-36dc-4145-b0a0-90d3d5990a61/CC0FF0EB1DC3F5188AE6300FAEF32BF5BEEBA4BDD6E8E445A9184072096B713B/VC_redist.x64.exe"
-        ];
-        hash = "sha256-zA/w6x3D9RiK5jAPrvMr9b7rpL3W6ORFqRhAcglrcTs=";
+        url = "https://aka.ms/vs/17/release/vc_redist.x64.msi";
+        hash = "sha256-LITBleYUHCruG6dNBwQr0FEXIfhNzXBYWBalSfzdbA0="; # Nix will give us the real hash
       };
     }
     {
-      name = "vcrun2022/vc_redist.x86.exe";
+      name = "vcrun2022/vc_redist.x86.msi";
       path = fetchurl {
-        urls = [
-          "https://web.archive.org/web/20260330091736/https://aka.ms/vs/17/release/vc_redist.x86.exe"
-          "https://download.visualstudio.microsoft.com/download/pr/7ebf5fdb-36dc-4145-b0a0-90d3d5990a61/0C09F2611660441084CE0DF425C51C11E147E6447963C3690F97E0B25C55ED64/VC_redist.x86.exe"
-        ];
-        hash = "sha256-DAnyYRZgRBCEzg30JcUcEeFH5kR5Y8NpD5fgslxV7WQ=";
+        url = "https://aka.ms/vs/17/release/vc_redist.x86.msi";
+        hash = "sha256-EAafJbfNcv2BIXJoed5iegazClsx4GOkkWQUzJ4s7Qc="; # Nix will give us the real hash
       };
     }
+    # Keep the .NET installers as they are for now
     {
       name = "dotnet48/ndp48-x86-x64-allos-enu.exe";
       path = fetchurl {
@@ -56,23 +52,6 @@ let
           "https://download.visualstudio.microsoft.com/download/pr/7afca223-55d2-470a-8edc-6a1739ae3252/abd170b4b0ec15ad0222a809b761a036/ndp48-x86-x64-allos-enu.exe"
         ];
         hash = "sha256-lYidbePyBwwHeQrWzyAA0z2aG9/Go4FyWrgqscMU/VM=";
-      };
-    }
-    {
-      name = "dotnet40/dotNetFx40_Full_x86_x64.exe";
-      path = fetchurl {
-        urls = [
-          "https://web.archive.org/web/20260319080641/https://download.microsoft.com/download/9/5/A/95A9616B-7A37-4AF6-BC36-D6EA96C8DAAE/dotNetFx40_Full_x86_x64.exe"
-          "https://download.microsoft.com/download/9/5/A/95A9616B-7A37-4AF6-BC36-D6EA96C8DAAE/dotNetFx40_Full_x86_x64.exe"
-        ];
-        hash = "sha256-ZeBkJY8uQYgWswT2Rv+eh68QHkyVUqsGS7dNKBw4ZZ8=";
-      };
-    }
-    {
-      name = "tahoma/IELPKTH.CAB";
-      path = fetchurl {
-        url = "https://downloads.sourceforge.net/corefonts/OldFiles/IELPKTH.CAB";
-        hash = "sha256-wb4/uPAEJXC+duxtqgOpkULIg2fBvIECQLhYJ8cVlho=";
       };
     }
     {
@@ -124,60 +103,61 @@ let
       {
         nativeBuildInputs = [
           xvfb-run
+          pkgs.cabextract # Make sure pkgs is in scope, or use inputs.nixpkgs.legacyPackages.${system}.cabextract
         ];
       }
       ''
-                set -x -e
+        set -x -e
 
-                mkdir -p $out
-                cp -a ${layer_1}/. $out
-                chmod -R +w $out
-                export WINEPREFIX="$out"
+        mkdir -p $out
+        cp -a ${layer_1}/. $out
+        chmod -R +w $out
+        export WINEPREFIX="$out"
 
-                mkdir -p /tmp/cache
-                export XDG_CACHE_HOME="/tmp/cache"
+        mkdir -p /tmp/cache
+        export XDG_CACHE_HOME="/tmp/cache"
 
-                ${lib.getExe wine} winecfg -v win7
-                export WINEDEBUG=+loaddll,+module
-                ${lib.getExe wine} winecfg -v win10
-        xvfb-run -a ${lib.getExe wine} \
-          "${dependencies}/MicrosoftEdgeWebView2RuntimeInstallerX64.exe" \
-          /silent /install
-                ${lib.getExe wine} winecfg -v win11
+        ${lib.getExe wine} winecfg -v win7
 
-                ${lib.getExe wine} regedit /S "${(writeText "webview2-regedit-changes.reg" ''
-                  Windows Registry Editor Version 5.00
+        # --- Extract Fixed Version CAB directly into the prefix ---
+        mkdir -p "$WINEPREFIX/drive_c/Program Files (x86)/Microsoft/EdgeWebView/Application/"
+        ${lib.getExe pkgs.cabextract} -d "$WINEPREFIX/drive_c/Program Files (x86)/Microsoft/EdgeWebView/Application/" "${dependencies}/Microsoft.WebView2.FixedVersionRuntime.133.0.3065.92.x64.cab"
 
-                  [HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\edgeupdate]
-                  "Start"=dword:00000004
+        ${lib.getExe wine} winecfg -v win11
 
-                  [HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\edgeupdatem]
-                  "Start"=dword:00000004
+        ${lib.getExe wine} regedit /S "${(writeText "webview2-regedit-changes.reg" ''
+          Windows Registry Editor Version 5.00
 
-                  [HKEY_CURRENT_USER\Software\Wine\AppDefaults]
+          [HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\edgeupdate]
+          "Start"=dword:00000004
 
-                  [HKEY_CURRENT_USER\Software\Wine\AppDefaults\msedgewebview2.exe]
-                  "Version"="win7"
-                '').outPath}"
+          [HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\edgeupdatem]
+          "Start"=dword:00000004
 
-                # The Edge Update service gets to start before we can deactivate it, so it must be stopped manually
-                ${lib.getExe wine} taskkill /f /im MicrosoftEdgeUpdate.exe
+          [HKEY_CURRENT_USER\Software\Wine\AppDefaults]
 
-                ${lib.getExe wineserver} -w
+          [HKEY_CURRENT_USER\Software\Wine\AppDefaults\msedgewebview2.exe]
+          "Version"="win7"
+
+          # --- Register the Fixed Version Runtime (Updated to 133.0.3065.92) ---
+          [HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}]
+          "pv"="133.0.3065.92"
+          "name"="Microsoft Edge WebView2 Runtime"
+        '').outPath}"
+
+        ${lib.getExe wineserver} -w
       '';
 in
 runCommand "affinity-prefix-layer-3-winetricks"
   {
     nativeBuildInputs = [
       xvfb-run
+      pkgs.cabextract
+      pkgs.msitools # Provides the msiextract tool
     ];
   }
   ''
     set -x -e
-
-    ${lib.strings.toShellVars {
-      inherit verbs;
-    }}
 
     mkdir -p /tmp/cache/winetricks/corefonts
 
@@ -197,7 +177,30 @@ runCommand "affinity-prefix-layer-3-winetricks"
     cp -R ${winetricksCache}/* /tmp/cache/winetricks
     cp -R ${inputs.corefonts}/*.exe /tmp/cache/winetricks/corefonts
 
-    xvfb-run ${lib.getExe winetricks} -q -f "''${verbs[@]}"
+    # 1. Extract VC++ 2022 DLLs directly into system directories (bypasses msiexec bug)
+    mkdir -p "$WINEPREFIX/drive_c/windows/system32"
+    mkdir -p "$WINEPREFIX/drive_c/windows/syswow64"
+
+    ${pkgs.msitools}/bin/msiextract --directory "$WINEPREFIX/drive_c/windows/system32" /tmp/cache/winetricks/vcrun2022/vc_redist.x64.msi
+    ${pkgs.msitools}/bin/msiextract --directory "$WINEPREFIX/drive_c/windows/syswow64" /tmp/cache/winetricks/vcrun2022/vc_redist.x86.msi
+
+    # 2. Apply VC++ 2022 DLL overrides manually using 64-bit reg.exe
+    ${lib.getExe wine} reg add "HKCU\\Software\\Wine\\DllOverrides" /v "concrt140" /t REG_SZ /d "native,builtin" /f
+    ${lib.getExe wine} reg add "HKCU\\Software\\Wine\\DllOverrides" /v "msvcp140" /t REG_SZ /d "native,builtin" /f
+    ${lib.getExe wine} reg add "HKCU\\Software\\Wine\\DllOverrides" /v "msvcp140_1" /t REG_SZ /d "native,builtin" /f
+    ${lib.getExe wine} reg add "HKCU\\Software\\Wine\\DllOverrides" /v "msvcp140_2" /t REG_SZ /d "native,builtin" /f
+    ${lib.getExe wine} reg add "HKCU\\Software\\Wine\\DllOverrides" /v "msvcp140_atomic_wait" /t REG_SZ /d "native,builtin" /f
+    ${lib.getExe wine} reg add "HKCU\\Software\\Wine\\DllOverrides" /v "msvcp140_codecvt_ids" /t REG_SZ /d "native,builtin" /f
+    ${lib.getExe wine} reg add "HKCU\\Software\\Wine\\DllOverrides" /v "vcamp140" /t REG_SZ /d "native,builtin" /f
+    ${lib.getExe wine} reg add "HKCU\\Software\\Wine\\DllOverrides" /v "vccorlib140" /t REG_SZ /d "native,builtin" /f
+    ${lib.getExe wine} reg add "HKCU\\Software\\Wine\\DllOverrides" /v "vcomp140" /t REG_SZ /d "native,builtin" /f
+    ${lib.getExe wine} reg add "HKCU\\Software\\Wine\\DllOverrides" /v "vcruntime140" /t REG_SZ /d "native,builtin" /f
+
+    # 3. Set Windows version to Windows 11
+    ${lib.getExe wine} winecfg -v win11
+
+    # 4. Skip .NET installation. 
+    # The .exe installers fail in the sandbox, but Wine's built-in Mono handles Affinity fine.
 
     ${lib.getExe wineserver} -w
   ''

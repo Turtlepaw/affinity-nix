@@ -5,9 +5,9 @@
 }:
 let
   paths = {
-    "MicrosoftEdgeWebView2RuntimeInstallerX64.exe" = fetchurl {
-      url = "https://archive.org/download/microsoft-edge-web-view-2-runtime-installer-v109.0.1518.78/MicrosoftEdgeWebView2RuntimeInstallerX64.exe";
-      hash = "sha256-8sxJhj4iFALUZk2fqUSkfyJUPaLcs2NDjD5Zh4m5/Vs=";
+    "Microsoft.WebView2.FixedVersionRuntime.133.0.3065.92.x64.cab" = fetchurl {
+      url = "https://github.com/westinyang/WebView2RuntimeArchive/releases/download/133.0.3065.92/Microsoft.WebView2.FixedVersionRuntime.133.0.3065.92.x64.cab";
+      hash = "sha256-Li694zL9MZ+J92lihXTpQjChxxWpKKW4Ru7sAS6BEkI=";
     };
   };
 in
